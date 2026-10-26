@@ -1,0 +1,97 @@
+{
+  "settings": {
+    "userName": "Zaid",
+    "userPhone": "+918767353773",
+    "countryCode": "+91",
+    "timeFormat": "12h",
+    "soundAlerts": true,
+    "soundType": "crystal",
+    "desktopNotifications": true,
+    "autoOpenWhatsApp": true,
+    "whatsappMethod": "web_auto",
+    "twilio": {
+      "accountSid": "",
+      "authToken": "",
+      "fromPhone": ""
+    },
+    "webhookUrl": "",
+    "telegramBotToken": "",
+    "telegramChatId": "",
+    "quietHours": {
+      "enabled": false,
+      "start": "23:00",
+      "end": "07:00"
+    }
+  },
+  "contacts": [],
+  "templates": [
+    {
+      "id": "tpl_morning",
+      "title": "Morning Greeting & Motivation",
+      "category": "Morning & Greetings",
+      "text": "Good morning {name}! ☀️ Wishing you a productive and joyful day ahead. Have a great day!",
+      "placeholders": [
+        "name"
+      ]
+    },
+    {
+      "id": "tpl_meds",
+      "title": "Medicine / Health Reminder",
+      "category": "Medication & Health",
+      "text": "Hi {name}! 💊 Gentle reminder to take your scheduled medicine/vitamins. Please drink water and take care!",
+      "placeholders": [
+        "name"
+      ]
+    },
+    {
+      "id": "tpl_hydration",
+      "title": "Water & Hydration Break",
+      "category": "Medication & Health",
+      "text": "Hey {name}! 💧 Quick reminder to drink a tall glass of water and take a quick break!",
+      "placeholders": [
+        "name"
+      ]
+    },
+    {
+      "id": "tpl_work",
+      "title": "Work / Task Follow-up",
+      "category": "Work & Follow-up",
+      "text": "Hello {name}! 💼 Just following up regarding our scheduled task. Please let me know once done!",
+      "placeholders": [
+        "name"
+      ]
+    },
+    {
+      "id": "tpl_workout",
+      "title": "Gym & Fitness Check-in",
+      "category": "Household & Personal",
+      "text": "Hey {name}! 💪 Time for today's workout session. Let's stay consistent with our fitness goals!",
+      "placeholders": [
+        "name"
+      ]
+    },
+    {
+      "id": "tpl_birthday",
+      "title": "Birthday Celebration Wishes",
+      "category": "Household & Personal",
+      "text": "🎉 Happy Birthday {name}! 🎂 Wishing you good health, lots of happiness, and a wonderful year ahead!",
+      "placeholders": [
+        "name"
+      ]
+    }
+  ],
+  "reminders": [],
+  "routines": [],
+  "tasks": [],
+  "logs": [],
+  "users": [
+    {
+      "id": "user_zaid",
+      "name": "Zaid",
+      "email": "zaid@routinepulse.com",
+      "phone": "+918767353773",
+      "passwordHash": "$2b$10$wZ7jTtAU9lmqFWgKgUmBvu1SuY6vSa3.esrGOdQqWH2fGv.0g0HmK",
+      "createdAt": "2026-10-26T14:13:30.767Z"
+    }
+  ]
+}

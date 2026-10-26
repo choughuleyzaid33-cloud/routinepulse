@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: routinepulse
+    env: node
+    plan: free
+    buildCommand: npm --prefix client install && npm --prefix client run build && npm --prefix server install
+    startCommand: node server/src/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: JWT_SECRET
+        generateValue: true
