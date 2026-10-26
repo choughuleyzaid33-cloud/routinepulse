@@ -137,7 +137,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLoginSuccess }) => {
                     required
                     value={usernameOrEmail}
                     onChange={e => setUsernameOrEmail(e.target.value)}
-                    placeholder="zaid17 or email"
+                    placeholder="Username or email address"
                     className="w-full pl-10 pr-4 py-2.5 bg-zinc-950/70 border border-zinc-800 rounded-xl text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500/80 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-150"
                   />
                 </div>
@@ -191,7 +191,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLoginSuccess }) => {
                     required
                     value={name}
                     onChange={e => setName(e.target.value)}
-                    placeholder="Zaid Chougle"
+                    placeholder="e.g. Sarah Jenkins"
                     className="w-full pl-10 pr-4 py-2 bg-zinc-950/70 border border-zinc-800 rounded-xl text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500/80 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-150"
                   />
                 </div>
@@ -208,7 +208,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLoginSuccess }) => {
                     required
                     value={username}
                     onChange={e => setUsername(e.target.value)}
-                    placeholder="zaid17"
+                    placeholder="e.g. sarah_j"
                     className="w-full pl-10 pr-4 py-2 bg-zinc-950/70 border border-zinc-800 rounded-xl text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500/80 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-150"
                   />
                 </div>
@@ -225,7 +225,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLoginSuccess }) => {
                     required
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    placeholder="name@example.com"
+                    placeholder="sarah@example.com"
                     className="w-full pl-10 pr-4 py-2 bg-zinc-950/70 border border-zinc-800 rounded-xl text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500/80 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-150"
                   />
                 </div>
@@ -241,7 +241,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLoginSuccess }) => {
                     type="tel"
                     value={phone}
                     onChange={e => setPhone(e.target.value)}
-                    placeholder="+91 8767353773"
+                    placeholder="e.g. +91 98765 43210"
                     className="w-full pl-10 pr-4 py-2 bg-zinc-950/70 border border-zinc-800 rounded-xl text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500/80 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-150"
                   />
                 </div>
@@ -259,7 +259,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLoginSuccess }) => {
                     minLength={6}
                     value={registerPassword}
                     onChange={e => setRegisterPassword(e.target.value)}
-                    placeholder="••••••••••••"
+                    placeholder="Create a strong password"
                     className="w-full pl-10 pr-4 py-2 bg-zinc-950/70 border border-zinc-800 rounded-xl text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500/80 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-150"
                   />
                 </div>
