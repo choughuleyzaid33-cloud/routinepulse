@@ -17,7 +17,7 @@ import {
   loginUser,
   ensureDefaultUser
 } from './auth.js';
-import { calculateNextRun, activeSseClients, broadcastSse } from './scheduler.js';
+import { calculateNextRun, activeSseClients, broadcastSse, getZonedTimeParts, DEFAULT_TIMEZONE } from './scheduler.js';
 import { dispatchReminder, getWhatsAppUrls, sanitizePhoneNumber } from './dispatcher.js';
 import {
   getWhatsAppStatus,
@@ -41,12 +41,14 @@ router.get('/status', (req, res) => {
   const db = readDb();
   const reminders = db.reminders || [];
   const activeCount = reminders.filter(r => r.active).length;
+  const istTime = getZonedTimeParts(new Date(), DEFAULT_TIMEZONE);
 
   res.json({
     status: 'online',
     appName: 'RoutinePulse 24/7 Engine',
-    serverTime: new Date().toISOString(),
-    localTime: new Date().toLocaleTimeString(),
+    timezone: DEFAULT_TIMEZONE,
+    currentTimeIST: `${istTime.dateStr} ${istTime.timeStr}:${String(istTime.second).padStart(2, '0')}`,
+    serverTimeUTC: new Date().toISOString(),
     activeReminders: activeCount,
     totalReminders: reminders.length,
     totalUsers: (db.users || []).length,
@@ -437,9 +439,9 @@ router.get('/whatsapp/status', requireAuth, (req, res) => {
 
 router.post('/whatsapp/connect', requireAuth, async (req, res) => {
   try {
-    const { phone } = req.body;
-    console.log(`[API WhatsApp Connect for ${req.user.name}] Initiating (phone: ${phone || 'QR'})`);
-    const status = await initWhatsAppClient(req.user.id, phone);
+    const { phone, forceFresh } = req.body;
+    console.log(`[API WhatsApp Connect for ${req.user.name}] Initiating (phone: ${phone || 'QR'}, forceFresh: ${Boolean(forceFresh)})`);
+    const status = await initWhatsAppClient(req.user.id, phone, Boolean(forceFresh));
     res.json(status);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -494,20 +496,40 @@ router.post('/smart-generate', requireAuth, (req, res) => {
       `Rise and shine ${recipientName}! 🌅 Today is packed with opportunities. Wishing you an awesome day!`,
       `Morning ${recipientName}! Just sending positive energy your way for a productive and calm day.`
     ],
+    medication: [
+      `Hi ${recipientName}! 💊 Gentle reminder to take your scheduled medicine/vitamins with water. Please take care!`,
+      `Health check-in for ${recipientName}! 💧 Drink a glass of fresh water and take your prescribed medication.`,
+      `Hey ${recipientName}! Time for your afternoon/evening dose. Stay healthy and keep smiling!`
+    ],
     work: [
       `Hi ${recipientName}, quick follow-up reminder regarding our scheduled deliverables. Let me know if you need any input! 💼`,
       `Hi ${recipientName}, checking in on today's agenda items. Looking forward to our next milestone update!`,
       `Hello ${recipientName}, reminder regarding our upcoming check-in. Looking forward to speaking soon!`
     ],
     workout: [
-      `Yo ${recipientName}! 🏋️‍♂️ Time for the daily workout session! Let's get moving and hit our goals today!`,
+      `Yo ${recipientName}! 🏋️‍♂️ Time for today's workout session! Let's get moving and hit our fitness goals!`,
       `Fitness alarm for ${recipientName}! 🏃 Get your sneakers on, workout time is here. Let's make it count!`,
-      `Ready to crush today's session, ${recipientName}? 💪 30 minutes of effort for 24 hours of energy!`
+      `Ready to crush today's gym session, ${recipientName}? 💪 Consistency is key to great results!`
     ],
     birthday: [
       `🎉 Happy Birthday ${recipientName}! 🎂 Wishing you another amazing year filled with laughter, health, and big achievements!`,
       `Happy Birthday ${recipientName}! 🥳 Hope you get to celebrate in style today. Have the best day ever!`,
       `Sending warmest birthday wishes to you ${recipientName}! May all your dreams and wishes come true this year! 🌟`
+    ],
+    bills: [
+      `Hi ${recipientName}, reminder: upcoming bill/utility payment is due soon. Please clear it to avoid late fees! 💳`,
+      `Friendly finance nudge for ${recipientName}: remember to review today's scheduled rent/subscription invoice! 📑`,
+      `Payment reminder ${recipientName}: don't forget to pay the scheduled bill today.`
+    ],
+    study: [
+      `Deep focus mode ${recipientName}! 📚 Time for 30 minutes of dedicated study/revision. Put distractions away!`,
+      `Exam prep check ${recipientName}! ⏱️ Review today's targeted topics and quiz yourself on key points.`,
+      `Study session time for ${recipientName}! Consistent daily revision creates effortless mastery.`
+    ],
+    family: [
+      `Hey ${recipientName}! Just sending love and checking in to see how everything is going with you today! ❤️`,
+      `Hi ${recipientName}, quick reminder to give family/parents a warm call this evening! 📞`,
+      `Thinking of you ${recipientName}! Hope you are having a wonderful, relaxing day.`
     ]
   };
 

@@ -4,3 +4,5 @@ server/node_modules
 client/dist
 .DS_Store
 *.log
+server/data/baileys_auth/
+server/data/baileys_auth/*

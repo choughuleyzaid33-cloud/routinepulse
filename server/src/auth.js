@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
-import { readDb, writeDb } from './db.js';
+import { readDb, writeDb, DEFAULT_USER_SETTINGS } from './db.js';
 
 export const JWT_SECRET = process.env.JWT_SECRET || 'routinepulse_master_secret_jwt_2026_cloud';
 
@@ -103,6 +103,8 @@ export async function registerUser({ username, name, email, phone, password }) {
   };
 
   db.users.push(newUser);
+  if (!db.settings || typeof db.settings !== 'object') db.settings = {};
+  db.settings[userId] = DEFAULT_USER_SETTINGS(userId, newUser.name, newUser.phone);
   writeDb(db);
 
   const token = generateToken(newUser);

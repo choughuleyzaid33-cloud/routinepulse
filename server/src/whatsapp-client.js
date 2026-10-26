@@ -33,14 +33,27 @@ function getOrCreateUserSession(userId = 'user_zaid') {
   return userSessions.get(userId);
 }
 
-function getUserAuthDir(userId = 'user_zaid') {
-  if (userId === 'user_zaid') {
-    // If credentials already exist directly in BASE_AUTH_DIR (from previous run)
-    if (fs.existsSync(path.join(BASE_AUTH_DIR, 'creds.json'))) {
-      return BASE_AUTH_DIR;
-    }
+/**
+ * Check if a user's auth directory has registered, valid WhatsApp credentials
+ */
+export function isUserRegistered(authDir) {
+  try {
+    const credsPath = path.join(authDir, 'creds.json');
+    if (!fs.existsSync(credsPath)) return false;
+    const raw = fs.readFileSync(credsPath, 'utf-8');
+    const creds = JSON.parse(raw);
+    return Boolean(creds && creds.registered === true);
+  } catch {
+    return false;
   }
-  const userDir = path.join(BASE_AUTH_DIR, userId);
+}
+
+/**
+ * Get dedicated auth directory for a user
+ */
+export function getUserAuthDir(userId = 'user_zaid') {
+  const safeId = String(userId).replace(/[^a-zA-Z0-9_-]/g, '_');
+  const userDir = path.join(BASE_AUTH_DIR, safeId);
   if (!fs.existsSync(userDir)) {
     fs.mkdirSync(userDir, { recursive: true });
   }
@@ -50,7 +63,7 @@ function getUserAuthDir(userId = 'user_zaid') {
 export function getWhatsAppStatus(userId = 'user_zaid') {
   const session = getOrCreateUserSession(userId);
   const authDir = getUserAuthDir(userId);
-  const isLinked = fs.existsSync(authDir) && fs.existsSync(path.join(authDir, 'creds.json'));
+  const isLinked = isUserRegistered(authDir);
 
   return {
     userId,
@@ -79,10 +92,10 @@ export function sanitizePhoneNumber(phone, defaultCountry = '91') {
   return cleaned;
 }
 
-export async function initWhatsAppClient(userId = 'user_zaid', phoneNumberForPairing = null) {
+export async function initWhatsAppClient(userId = 'user_zaid', phoneNumberForPairing = null, forceFresh = false) {
   const session = getOrCreateUserSession(userId);
 
-  if (session.isInitializing) {
+  if (session.isInitializing && !forceFresh && !phoneNumberForPairing) {
     console.log(`[WhatsApp Socket ${userId}] Initialization already in progress.`);
     return getWhatsAppStatus(userId);
   }
@@ -90,6 +103,11 @@ export async function initWhatsAppClient(userId = 'user_zaid', phoneNumberForPai
   session.isInitializing = true;
 
   // Clean up any stale socket for this user
+  if (session.reconnectTimer) {
+    clearTimeout(session.reconnectTimer);
+    session.reconnectTimer = null;
+  }
+
   if (session.sock) {
     try {
       session.sock.ev.removeAllListeners();
@@ -99,6 +117,16 @@ export async function initWhatsAppClient(userId = 'user_zaid', phoneNumberForPai
   }
 
   const authDir = getUserAuthDir(userId);
+
+  // If forcing fresh, or if not registered yet, start completely clean so Baileys generates a fresh handshake
+  if (forceFresh || phoneNumberForPairing || !isUserRegistered(authDir)) {
+    try {
+      if (fs.existsSync(authDir)) {
+        fs.rmSync(authDir, { recursive: true, force: true });
+      }
+      fs.mkdirSync(authDir, { recursive: true });
+    } catch (e) {}
+  }
 
   try {
     session.state = 'connecting';
@@ -111,8 +139,8 @@ export async function initWhatsAppClient(userId = 'user_zaid', phoneNumberForPai
       version,
       auth: state,
       logger: pino({ level: 'silent' }),
-      printQRInTerminal: userId === 'user_zaid',
-      browser: Browsers.windows('Desktop'),
+      printQRInTerminal: false,
+      browser: Browsers.ubuntu('Chrome'),
       syncFullHistory: false,
       connectTimeoutMs: 60000,
       defaultQueryTimeoutMs: 60000,
@@ -132,13 +160,16 @@ export async function initWhatsAppClient(userId = 'user_zaid', phoneNumberForPai
             const code = await session.sock.requestPairingCode(cleanPhone);
             session.pairingCode = code;
             session.state = 'pairing_code';
+            session.isInitializing = false;
             console.log(`[WhatsApp Socket ${userId}] Pairing Code Generated: ${code}`);
             broadcastSse('whatsapp_status', { userId, state: 'pairing_code', pairingCode: code });
           }
         } catch (pairErr) {
           console.error(`[WhatsApp Pairing Code Error ${userId}]`, pairErr);
+          session.isInitializing = false;
+          broadcastSse('whatsapp_status', { userId, state: 'disconnected', error: pairErr.message });
         }
-      }, 2000);
+      }, 1500);
     }
 
     sock.ev.on('connection.update', async update => {
@@ -149,6 +180,7 @@ export async function initWhatsAppClient(userId = 'user_zaid', phoneNumberForPai
           session.qrCode = await QRCode.toDataURL(qr);
           session.pairingCode = null;
           session.state = 'scan_qr';
+          session.isInitializing = false;
           console.log(`[WhatsApp Socket ${userId}] QR Code ready.`);
           broadcastSse('whatsapp_qr', { userId, qrCode: session.qrCode });
           broadcastSse('whatsapp_status', { userId, state: 'scan_qr', qrCode: session.qrCode });
@@ -161,13 +193,14 @@ export async function initWhatsAppClient(userId = 'user_zaid', phoneNumberForPai
         session.state = 'connected';
         session.qrCode = null;
         session.pairingCode = null;
+        session.isInitializing = false;
         session.user = sock.user || { id: 'unknown', name: 'WhatsApp User' };
         console.log(`====================================================`);
         console.log(`[WhatsApp Socket ${userId}] Connected & Authenticated!`);
         console.log(`Phone ID: ${session.user.id}`);
         console.log(`User:     ${session.user.name || 'Active'}`);
         console.log(`====================================================`);
-        broadcastSse('whatsapp_status', { userId, state: 'connected', user: session.user });
+        broadcastSse('whatsapp_status', { userId, state: 'connected', user: session.user, isLinked: true });
       }
 
       if (connection === 'close') {
@@ -182,19 +215,27 @@ export async function initWhatsAppClient(userId = 'user_zaid', phoneNumberForPai
           session.user = null;
           session.qrCode = null;
           session.pairingCode = null;
+          session.isInitializing = false;
           try {
             fs.rmSync(authDir, { recursive: true, force: true });
           } catch (e) {}
-          broadcastSse('whatsapp_status', { userId, state: 'disconnected' });
+          broadcastSse('whatsapp_status', { userId, state: 'disconnected', isLinked: false });
         } else {
-          console.log(`[WhatsApp Socket ${userId}] Reconnecting with saved credentials...`);
-          session.state = 'connecting';
-          broadcastSse('whatsapp_status', { userId, state: 'connecting' });
+          // Only auto-reconnect if device is actually registered
+          if (isUserRegistered(authDir)) {
+            console.log(`[WhatsApp Socket ${userId}] Reconnecting with registered session...`);
+            session.state = 'connecting';
+            broadcastSse('whatsapp_status', { userId, state: 'connecting' });
 
-          if (session.reconnectTimer) clearTimeout(session.reconnectTimer);
-          session.reconnectTimer = setTimeout(() => {
-            initWhatsAppClient(userId).catch(console.error);
-          }, 2000);
+            if (session.reconnectTimer) clearTimeout(session.reconnectTimer);
+            session.reconnectTimer = setTimeout(() => {
+              initWhatsAppClient(userId).catch(console.error);
+            }, 3000);
+          } else {
+            session.state = 'disconnected';
+            session.isInitializing = false;
+            broadcastSse('whatsapp_status', { userId, state: 'disconnected', isLinked: false });
+          }
         }
       }
     });
@@ -205,7 +246,7 @@ export async function initWhatsAppClient(userId = 'user_zaid', phoneNumberForPai
     console.error(`[WhatsApp Init Error ${userId}]`, err);
     session.isInitializing = false;
     session.state = 'disconnected';
-    broadcastSse('whatsapp_status', { userId, state: 'disconnected', error: err.message });
+    broadcastSse('whatsapp_status', { userId, state: 'disconnected', error: err.message, isLinked: false });
     return getWhatsAppStatus(userId);
   }
 }
@@ -238,22 +279,29 @@ export async function sendDirectWhatsAppMessage(phoneNumber, message, userId = '
 export async function disconnectWhatsAppSession(userId = 'user_zaid') {
   const session = getOrCreateUserSession(userId);
   try {
+    if (session.reconnectTimer) {
+      clearTimeout(session.reconnectTimer);
+      session.reconnectTimer = null;
+    }
     if (session.sock) {
-      session.sock.ev.removeAllListeners();
-      session.sock.end();
+      try {
+        session.sock.ev.removeAllListeners();
+        session.sock.end();
+      } catch (e) {}
       session.sock = null;
     }
     session.state = 'disconnected';
     session.qrCode = null;
     session.pairingCode = null;
     session.user = null;
+    session.isInitializing = false;
 
     const authDir = getUserAuthDir(userId);
     if (fs.existsSync(authDir)) {
       fs.rmSync(authDir, { recursive: true, force: true });
     }
 
-    broadcastSse('whatsapp_status', { userId, state: 'disconnected' });
+    broadcastSse('whatsapp_status', { userId, state: 'disconnected', isLinked: false });
     return { success: true };
   } catch (err) {
     console.error(`[WhatsApp Logout Error ${userId}]`, err);
@@ -267,19 +315,12 @@ export async function disconnectWhatsAppSession(userId = 'user_zaid') {
 export async function reconnectAllActiveWhatsAppSessions() {
   if (!fs.existsSync(BASE_AUTH_DIR)) return;
 
-  // 1. Check default user_zaid at root of baileys_auth
-  if (fs.existsSync(path.join(BASE_AUTH_DIR, 'creds.json'))) {
-    console.log('[Startup] Found linked session for user_zaid. Auto-reconnecting...');
-    initWhatsAppClient('user_zaid').catch(err => console.error('[Startup Reconnect user_zaid]', err.message));
-  }
-
-  // 2. Check any subdirectories for other users
   try {
     const entries = fs.readdirSync(BASE_AUTH_DIR, { withFileTypes: true });
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        const subDir = path.join(BASE_AUTH_DIR, entry.name);
-        if (fs.existsSync(path.join(subDir, 'creds.json'))) {
+        const userDir = path.join(BASE_AUTH_DIR, entry.name);
+        if (isUserRegistered(userDir)) {
           console.log(`[Startup] Found linked session for user ${entry.name}. Auto-reconnecting...`);
           initWhatsAppClient(entry.name).catch(err => console.error(`[Startup Reconnect ${entry.name}]`, err.message));
         }

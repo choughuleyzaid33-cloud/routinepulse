@@ -292,11 +292,11 @@ export const api = {
     });
     return res.json();
   },
-  connectWhatsAppClient: async (phone?: string) => {
+  connectWhatsAppClient: async (phone?: string, forceFresh = false) => {
     const res = await fetch(`${BASE_URL}/whatsapp/connect`, {
       method: 'POST',
       headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ phone })
+      body: JSON.stringify({ phone, forceFresh })
     });
     return res.json();
   },

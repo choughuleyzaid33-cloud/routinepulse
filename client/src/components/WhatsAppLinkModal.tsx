@@ -43,17 +43,27 @@ export const WhatsAppLinkModal: React.FC<WhatsAppLinkModalProps> = ({
   const [isConnecting, setIsConnecting] = useState(false);
 
   useEffect(() => {
-    if (isOpen && status.state === 'disconnected') {
-      handleStartQRConnect();
+    if (!isOpen) return;
+
+    // Trigger initial connect if disconnected and not connected yet
+    if (status.state === 'disconnected' && !status.isLinked && !status.qrCode) {
+      handleStartQRConnect(false);
     }
+
+    // Active polling while modal is open (ensures QR, pairing code, and connected state arrive immediately)
+    const timer = setInterval(() => {
+      onRefresh();
+    }, 2000);
+
+    return () => clearInterval(timer);
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const handleStartQRConnect = async () => {
+  const handleStartQRConnect = async (forceFresh = false) => {
     setIsConnecting(true);
     try {
-      await api.connectWhatsAppClient();
+      await api.connectWhatsAppClient(undefined, forceFresh);
       onRefresh();
     } catch (e) {
       console.error(e);
@@ -67,7 +77,7 @@ export const WhatsAppLinkModal: React.FC<WhatsAppLinkModalProps> = ({
     if (!pairingPhone.trim()) return;
     setIsConnecting(true);
     try {
-      await api.connectWhatsAppClient(pairingPhone);
+      await api.connectWhatsAppClient(pairingPhone, true);
       onRefresh();
     } catch (e) {
       console.error(e);
@@ -277,6 +287,18 @@ export const WhatsAppLinkModal: React.FC<WhatsAppLinkModalProps> = ({
                       <p className="text-xs text-center font-medium">Generating fresh QR code...</p>
                     </div>
                   )}
+
+                  <div className="mt-2 text-center">
+                    <button
+                      type="button"
+                      onClick={() => handleStartQRConnect(true)}
+                      disabled={isConnecting}
+                      className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${isConnecting ? 'animate-spin' : ''}`} />
+                      <span>{isConnecting ? 'Refreshing...' : 'Get Fresh QR Code'}</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="bg-slate-950/70 rounded-2xl p-3.5 border border-slate-800 text-xs text-slate-300 space-y-1.5">
@@ -351,7 +373,7 @@ export const WhatsAppLinkModal: React.FC<WhatsAppLinkModalProps> = ({
             <div className="flex items-center justify-between pt-2">
               <button
                 type="button"
-                onClick={handleStartQRConnect}
+                onClick={() => handleStartQRConnect(true)}
                 disabled={isConnecting}
                 className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center space-x-1 font-medium"
               >

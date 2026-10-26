@@ -17,6 +17,7 @@ import { Sidebar } from './components/Sidebar';
 import { LiveAlertModal } from './components/LiveAlertModal';
 import { NewReminderModal } from './components/NewReminderModal';
 import { WhatsAppLinkModal } from './components/WhatsAppLinkModal';
+import { InstallPromptModal } from './components/InstallPromptModal';
 import {
   LayoutDashboard,
   Bell,
@@ -25,7 +26,9 @@ import {
   Settings,
   Radio,
   Send,
-  LogOut
+  LogOut,
+  Download,
+  Smartphone
 } from 'lucide-react';
 import { AuthView } from './views/AuthView';
 import { DashboardView } from './views/DashboardView';
@@ -55,12 +58,24 @@ export const App: React.FC = () => {
   const [isNewReminderOpen, setIsNewReminderOpen] = useState(false);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [isWhatsAppLinkOpen, setIsWhatsAppLinkOpen] = useState(false);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [whatsAppStatus, setWhatsAppStatus] = useState<{
     state: string;
     qrCode: string | null;
     user: any;
     isLinked?: boolean;
   }>({ state: 'disconnected', qrCode: null, user: null });
+
+  // Listen for PWA beforeinstallprompt on mobile/desktop
+  useEffect(() => {
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+  }, []);
 
   // Load user data
   const loadData = async () => {
@@ -213,11 +228,15 @@ export const App: React.FC = () => {
   const handleLogout = () => {
     api.logout();
     setCurrentUser(null);
+    setSettings(null);
+    setWhatsAppStatus({ state: 'disconnected', qrCode: null, user: null, isLinked: false });
     setReminders([]);
     setRoutines([]);
     setTasks([]);
     setContacts([]);
+    setTemplates([]);
     setLogs([]);
+    setCurrentView('dashboard');
   };
 
   const handleOpenNewReminder = (_type?: 'someone_else' | 'self') => {
@@ -316,9 +335,11 @@ export const App: React.FC = () => {
   if (!currentUser) {
     return (
       <AuthView
-        onLoginSuccess={user => {
+        onLoginSuccess={async user => {
           setCurrentUser(user);
-          loadData();
+          setSettings(null);
+          setWhatsAppStatus({ state: 'disconnected', qrCode: null, user: null, isLinked: false });
+          await loadData();
         }}
       />
     );
@@ -342,6 +363,20 @@ export const App: React.FC = () => {
         </div>
 
         <div className="flex items-center space-x-2">
+          <button
+            onClick={() => {
+              if (deferredPrompt) {
+                deferredPrompt.prompt();
+              } else {
+                setIsInstallModalOpen(true);
+              }
+            }}
+            title="Install App on Phone"
+            className="p-1.5 px-2.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold flex items-center space-x-1 transition"
+          >
+            <Download className="w-3 h-3" />
+            <span className="text-[11px] font-bold">Install</span>
+          </button>
           <button
             onClick={() => handleOpenNewReminder('someone_else')}
             className="p-1.5 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center space-x-1"
@@ -368,6 +403,7 @@ export const App: React.FC = () => {
         routineStreak={totalStreaks}
         currentUser={currentUser}
         onLogout={handleLogout}
+        onInstallApp={() => setIsInstallModalOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -462,14 +498,21 @@ export const App: React.FC = () => {
             />
           )}
 
-          {currentView === 'settings' && settings && (
-            <SettingsView
-              settings={settings}
-              whatsAppStatus={whatsAppStatus}
-              onOpenWhatsAppLink={() => setIsWhatsAppLinkOpen(true)}
-              onSettingsUpdated={setSettings}
-              onDataReset={loadData}
-            />
+          {currentView === 'settings' && (
+            settings ? (
+              <SettingsView
+                settings={settings}
+                whatsAppStatus={whatsAppStatus}
+                onOpenWhatsAppLink={() => setIsWhatsAppLinkOpen(true)}
+                onSettingsUpdated={setSettings}
+                onDataReset={loadData}
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center py-20 text-zinc-400 space-y-3">
+                <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                <p className="text-xs font-medium">Loading your profile settings...</p>
+              </div>
+            )
           )}
         </div>
       </main>
@@ -480,6 +523,14 @@ export const App: React.FC = () => {
         onClose={() => setIsWhatsAppLinkOpen(false)}
         status={whatsAppStatus}
         onRefresh={() => api.getWhatsAppClientStatus().then(setWhatsAppStatus)}
+      />
+
+      {/* Install Mobile PWA Modal */}
+      <InstallPromptModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
+        deferredPrompt={deferredPrompt}
+        onPromptAccepted={() => setDeferredPrompt(null)}
       />
 
       {/* Live Fired Reminder Modal Overlay */}

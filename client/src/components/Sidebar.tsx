@@ -11,7 +11,8 @@ import {
   Send,
   Radio,
   LogOut,
-  User as UserIcon
+  User as UserIcon,
+  Download
 } from 'lucide-react';
 import { User } from '../types';
 
@@ -23,6 +24,7 @@ interface SidebarProps {
   routineStreak: number;
   currentUser?: User | null;
   onLogout?: () => void;
+  onInstallApp?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -32,7 +34,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeRemindersCount,
   routineStreak,
   currentUser,
-  onLogout
+  onLogout,
+  onInstallApp
 }) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -135,6 +138,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
             )}
           </div>
+        )}
+
+        {onInstallApp && (
+          <button
+            onClick={onInstallApp}
+            className="w-full flex items-center justify-center space-x-2 py-2 px-3 bg-emerald-950/30 hover:bg-emerald-900/40 text-emerald-300 border border-emerald-500/30 text-xs font-semibold rounded-xl transition shadow-sm"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Install on Phone / PC</span>
+          </button>
         )}
 
         <div className="bg-zinc-950/60 border border-white/[0.04] rounded-2xl p-2.5 flex items-center space-x-2.5">

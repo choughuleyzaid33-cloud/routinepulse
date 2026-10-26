@@ -41,7 +41,17 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
   const [newCategory, setNewCategory] = useState('Custom');
   const [newText, setNewText] = useState('');
 
-  const categories = ['all', 'Morning & Greetings', 'Medication & Health', 'Work & Follow-up', 'Household & Personal', 'Custom'];
+  const categories = Array.from(new Set([
+    'all',
+    'Morning & Greetings',
+    'Medication & Health',
+    'Gym & Fitness',
+    'Work & Deadlines',
+    'Family & Celebrations',
+    'Household & Bills',
+    'Study & Learning',
+    ...templates.map(t => t.category).filter(Boolean)
+  ]));
 
   const filtered = templates.filter(t => {
     if (selectedCategory !== 'all' && t.category !== selectedCategory) return false;
@@ -151,10 +161,12 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
               className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
             >
               <option value="medication">Medication & Health 💊</option>
-              <option value="hydration">Hydration & Water 💧</option>
               <option value="morning">Morning Greeting ☀️</option>
+              <option value="workout">Gym & Fitness 💪</option>
               <option value="work">Work & Deliverables 💼</option>
-              <option value="workout">Gym & Workout 💪</option>
+              <option value="family">Family & Loved Ones ❤️</option>
+              <option value="bills">Bills & Finance 💳</option>
+              <option value="study">Study & Focus 📚</option>
               <option value="birthday">Birthday Greeting 🎂</option>
             </select>
           </div>

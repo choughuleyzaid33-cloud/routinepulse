@@ -44,6 +44,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [formData, setFormData] = useState<AppSettings>(settings);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Sync form data whenever settings change (e.g. switching accounts)
+  React.useEffect(() => {
+    if (settings) {
+      setFormData(settings);
+    }
+  }, [settings]);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   );
@@ -417,7 +424,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 type="tel"
                 value={formData.userPhone}
                 onChange={e => setFormData({ ...formData, userPhone: e.target.value })}
-                placeholder="+14155552671"
+                placeholder="+91 9876543210"
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white font-mono"
               />
             </div>
