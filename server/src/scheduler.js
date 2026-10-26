@@ -16,26 +16,66 @@ export function broadcastSse(eventType, data) {
   }
 }
 
+export const DEFAULT_TIMEZONE = 'Asia/Kolkata'; // India Standard Time (IST)
+
 /**
- * Format Date to YYYY-MM-DD
+ * Get date/time parts in target timezone (e.g. Asia/Kolkata)
  */
-function toDateStr(date) {
-  return date.toISOString().split('T')[0];
+export function getZonedTimeParts(date = new Date(), timeZone = DEFAULT_TIMEZONE) {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+
+  const parts = formatter.formatToParts(date);
+  const m = {};
+  for (const p of parts) {
+    m[p.type] = p.value;
+  }
+
+  const hour = m.hour === '24' ? '00' : m.hour;
+  const timeStr = `${hour}:${m.minute}`;
+  const dateStr = `${m.year}-${m.month}-${m.day}`;
+
+  const dayFmt = new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short' });
+  const dayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const dayOfWeek = dayMap[dayFmt.format(date)] ?? 0;
+
+  return {
+    year: Number(m.year),
+    month: Number(m.month),
+    day: Number(m.day),
+    hour: Number(hour),
+    minute: Number(m.minute),
+    second: Number(m.second),
+    timeStr,
+    dateStr,
+    dayOfWeek
+  };
 }
 
 /**
- * Format Date to HH:mm (24-hour local time)
+ * Convert a local calendar date/time in target timezone to an exact UTC Date object
  */
-function toTimeStr(date) {
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  return `${hours}:${minutes}`;
+export function zonedToUtc(year, month, day, hour, minute, timeZone = DEFAULT_TIMEZONE) {
+  const utcEpoch = Date.UTC(year, month - 1, day, hour, minute, 0);
+  const approxDate = new Date(utcEpoch);
+  const utcDate = new Date(approxDate.toLocaleString('en-US', { timeZone: 'UTC' }));
+  const tzDate = new Date(approxDate.toLocaleString('en-US', { timeZone }));
+  const offset = tzDate.getTime() - utcDate.getTime();
+  return new Date(utcEpoch - offset);
 }
 
 /**
- * Compute the next run ISO string for a reminder
+ * Compute the next run ISO string for a reminder with timezone accuracy
  */
-export function calculateNextRun(reminder, fromDate = new Date()) {
+export function calculateNextRun(reminder, fromDate = new Date(), timeZone = DEFAULT_TIMEZONE) {
   const [targetH, targetM] = (reminder.time || '09:00').split(':').map(Number);
   const now = fromDate;
 
@@ -47,35 +87,33 @@ export function calculateNextRun(reminder, fromDate = new Date()) {
   if (reminder.scheduleType === 'once') {
     if (!reminder.date) return null;
     const [y, m, d] = reminder.date.split('-').map(Number);
-    const target = new Date(y, m - 1, d, targetH, targetM, 0);
+    const target = zonedToUtc(y, m, d, targetH, targetM, timeZone);
     return target > now ? target.toISOString() : null;
   }
 
-  // Daily, Weekdays, or Custom Days
-  const candidate = new Date(now);
-  candidate.setHours(targetH, targetM, 0, 0);
-
-  // If candidate is already in the past today, start looking from tomorrow
-  if (candidate <= now) {
-    candidate.setDate(candidate.getDate() + 1);
-  }
-
+  // Daily, Weekdays, or Custom Days in target timezone
   for (let dayOffset = 0; dayOffset < 14; dayOffset++) {
-    const dayOfWeek = candidate.getDay(); // 0 = Sun, 1 = Mon ...
-    let matches = false;
+    const dayDate = new Date(now.getTime() + dayOffset * 24 * 60 * 60 * 1000);
+    const zoned = getZonedTimeParts(dayDate, timeZone);
+    const candidateUtc = zonedToUtc(zoned.year, zoned.month, zoned.day, targetH, targetM, timeZone);
 
+    // If candidate has already passed relative to now, check next day
+    if (candidateUtc <= now) {
+      continue;
+    }
+
+    let matches = false;
     if (reminder.scheduleType === 'daily') {
       matches = true;
     } else if (reminder.scheduleType === 'weekdays') {
-      matches = dayOfWeek >= 1 && dayOfWeek <= 5;
+      matches = zoned.dayOfWeek >= 1 && zoned.dayOfWeek <= 5;
     } else if (reminder.scheduleType === 'custom_days') {
-      matches = Array.isArray(reminder.daysOfWeek) && reminder.daysOfWeek.includes(dayOfWeek);
+      matches = Array.isArray(reminder.daysOfWeek) && reminder.daysOfWeek.includes(zoned.dayOfWeek);
     }
 
     if (matches) {
-      return candidate.toISOString();
+      return candidateUtc.toISOString();
     }
-    candidate.setDate(candidate.getDate() + 1);
   }
 
   return null;
@@ -87,7 +125,12 @@ let currentMinuteKey = '';
 
 export async function checkRemindersTick() {
   const now = new Date();
-  const minuteKey = `${toDateStr(now)}_${toTimeStr(now)}`;
+  const current = getZonedTimeParts(now, DEFAULT_TIMEZONE);
+  const currentTime = current.timeStr; // e.g. "20:31" in India
+  const currentDate = current.dateStr; // e.g. "2026-10-26"
+  const currentDayOfWeek = current.dayOfWeek;
+
+  const minuteKey = `${currentDate}_${currentTime}`;
 
   if (minuteKey !== currentMinuteKey) {
     firedInCurrentMinute.clear();
@@ -96,9 +139,6 @@ export async function checkRemindersTick() {
 
   const db = readDb();
   const reminders = db.reminders || [];
-  const currentTime = toTimeStr(now);
-  const currentDate = toDateStr(now);
-  const currentDayOfWeek = now.getDay();
 
   for (const reminder of reminders) {
     if (!reminder.active) continue;
@@ -138,7 +178,7 @@ export async function checkRemindersTick() {
 
     if (shouldTrigger) {
       firedInCurrentMinute.add(reminder.id);
-      console.log(`[Scheduler Trigger] Running "${reminder.title}" for ${reminder.recipientName}`);
+      console.log(`[Scheduler Trigger] Running "${reminder.title}" for ${reminder.recipientName} at ${currentTime} IST`);
 
       // Dispatch
       const result = await dispatchReminder(reminder);
@@ -152,7 +192,7 @@ export async function checkRemindersTick() {
               ...item,
               active: isOnce ? false : item.active,
               lastRun: now.toISOString(),
-              nextRun: calculateNextRun(item, now)
+              nextRun: calculateNextRun(item, now, DEFAULT_TIMEZONE)
             };
           }
           return item;
@@ -161,6 +201,7 @@ export async function checkRemindersTick() {
 
       // Broadcast to connected frontend clients
       broadcastSse('reminder_fired', {
+        userId: reminder.userId,
         reminder,
         result,
         timestamp: now.toISOString()
@@ -172,7 +213,22 @@ export async function checkRemindersTick() {
 let schedulerInterval = null;
 
 export function startScheduler() {
-  console.log('[Scheduler Daemon] Initializing background reminder engine...');
+  console.log(`[Scheduler Daemon] Initializing background reminder engine in timezone: ${DEFAULT_TIMEZONE} (IST)...`);
+
+  // Synchronize all existing reminders to correct IST nextRun on startup
+  try {
+    updateSection('reminders', (list = []) => {
+      const now = new Date();
+      return list.map(r => ({
+        ...r,
+        nextRun: calculateNextRun(r, now, DEFAULT_TIMEZONE)
+      }));
+    });
+    console.log('[Scheduler Daemon] Synchronized all existing reminders to IST timezone.');
+  } catch (syncErr) {
+    console.error('[Scheduler Startup Sync Error]', syncErr.message);
+  }
+
   // Run immediate tick check
   checkRemindersTick().catch(console.error);
 
@@ -183,15 +239,15 @@ export function startScheduler() {
 
   // Daily midnight cleanup and nextRun recalculation
   cron.schedule('0 0 * * *', () => {
-    console.log('[Scheduler Daemon] Recalculating daily nextRun times...');
+    console.log('[Scheduler Daemon] Recalculating daily nextRun times in IST...');
     updateSection('reminders', (list = []) => {
       const now = new Date();
       return list.map(r => ({
         ...r,
-        nextRun: calculateNextRun(r, now)
+        nextRun: calculateNextRun(r, now, DEFAULT_TIMEZONE)
       }));
     });
-  });
+  }, { timezone: DEFAULT_TIMEZONE });
 }
 
 export function stopScheduler() {

@@ -3,6 +3,10 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+
+// Force India Standard Time (IST) on Cloud Containers / Render
+process.env.TZ = process.env.TZ || 'Asia/Kolkata';
+
 import { router } from './routes.js';
 import { startScheduler } from './scheduler.js';
 import { reconnectAllActiveWhatsAppSessions } from './whatsapp-client.js';
