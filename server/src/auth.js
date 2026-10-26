@@ -5,29 +5,42 @@ import { readDb, writeDb } from './db.js';
 
 export const JWT_SECRET = process.env.JWT_SECRET || 'routinepulse_master_secret_jwt_2026_cloud';
 
-// Seed initial account for Zaid if not already registered
+// Seed or update Zaid's master account with username 'zaid17' and password 'Ortonrox@007'
 export function ensureDefaultUser() {
   const db = readDb();
   if (!db.users) {
     db.users = [];
   }
 
-  const existingZaid = db.users.find(u => u.id === 'user_zaid' || u.phone === '+918767353773' || u.email === 'zaid@routinepulse.com');
-  if (!existingZaid) {
-    const salt = bcrypt.genSaltSync(10);
-    const passwordHash = bcrypt.hashSync('zaid123', salt);
-    const zaidUser = {
-      id: 'user_zaid',
-      name: 'Zaid',
-      email: 'zaid@routinepulse.com',
-      phone: '+918767353773',
-      passwordHash,
-      createdAt: new Date().toISOString()
+  const salt = bcrypt.genSaltSync(10);
+  const passwordHash = bcrypt.hashSync('Ortonrox@007', salt);
+
+  const existingZaidIndex = db.users.findIndex(
+    u => u.id === 'user_zaid' || u.username === 'zaid17' || u.phone === '+918767353773' || u.email === 'zaid@routinepulse.com'
+  );
+
+  const zaidUser = {
+    id: 'user_zaid',
+    username: 'zaid17',
+    name: 'Zaid',
+    email: 'zaid@routinepulse.com',
+    phone: '+918767353773',
+    passwordHash,
+    createdAt: new Date().toISOString()
+  };
+
+  if (existingZaidIndex >= 0) {
+    db.users[existingZaidIndex] = {
+      ...db.users[existingZaidIndex],
+      ...zaidUser
     };
+    console.log('[Auth] Master account for zaid17 updated with requested credentials.');
+  } else {
     db.users.push(zaidUser);
-    writeDb(db);
-    console.log('[Auth] Default account for Zaid initialized (ID: user_zaid)');
+    console.log('[Auth] Master account for zaid17 created.');
   }
+
+  writeDb(db);
 }
 
 // Generate JWT token
@@ -35,6 +48,7 @@ export function generateToken(user) {
   return jwt.sign(
     {
       id: user.id,
+      username: user.username || user.email,
       name: user.name,
       email: user.email,
       phone: user.phone
@@ -45,7 +59,7 @@ export function generateToken(user) {
 }
 
 // Register new user
-export async function registerUser({ name, email, phone, password }) {
+export async function registerUser({ username, name, email, phone, password }) {
   if (!name || !email || !password) {
     throw new Error('Name, email, and password are required');
   }
@@ -58,9 +72,20 @@ export async function registerUser({ name, email, phone, password }) {
   if (!db.users) db.users = [];
 
   const normalizedEmail = email.trim().toLowerCase();
-  const existingUser = db.users.find(u => u.email.toLowerCase() === normalizedEmail);
-  if (existingUser) {
+  const normalizedUsername = (username || email.split('@')[0]).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+
+  if (normalizedUsername.length < 3) {
+    throw new Error('Username must be at least 3 alphanumeric characters');
+  }
+
+  const existingEmail = db.users.find(u => u.email.toLowerCase() === normalizedEmail);
+  if (existingEmail) {
     throw new Error('An account with this email already exists');
+  }
+
+  const existingUsername = db.users.find(u => u.username && u.username.toLowerCase() === normalizedUsername);
+  if (existingUsername) {
+    throw new Error('This username is already taken. Please choose another.');
   }
 
   const salt = await bcrypt.genSalt(10);
@@ -69,6 +94,7 @@ export async function registerUser({ name, email, phone, password }) {
 
   const newUser = {
     id: userId,
+    username: normalizedUsername,
     name: name.trim(),
     email: normalizedEmail,
     phone: phone ? phone.trim() : '',
@@ -77,8 +103,6 @@ export async function registerUser({ name, email, phone, password }) {
   };
 
   db.users.push(newUser);
-
-  // Initialize empty user data structures if needed
   writeDb(db);
 
   const token = generateToken(newUser);
@@ -86,6 +110,7 @@ export async function registerUser({ name, email, phone, password }) {
     token,
     user: {
       id: newUser.id,
+      username: newUser.username,
       name: newUser.name,
       email: newUser.email,
       phone: newUser.phone,
@@ -94,27 +119,32 @@ export async function registerUser({ name, email, phone, password }) {
   };
 }
 
-// Login user
-export async function loginUser({ emailOrPhone, password }) {
-  if (!emailOrPhone || !password) {
-    throw new Error('Email/phone and password are required');
+// Login user (supports username, email, or phone)
+export async function loginUser({ usernameOrEmail, emailOrPhone, password }) {
+  const query = (usernameOrEmail || emailOrPhone || '').trim().toLowerCase();
+  if (!query || !password) {
+    throw new Error('Username/email and password are required');
   }
 
   const db = readDb();
   if (!db.users) db.users = [];
 
-  const query = emailOrPhone.trim().toLowerCase();
-  const user = db.users.find(
-    u => u.email.toLowerCase() === query || (u.phone && u.phone.replace(/[^\d]/g, '').includes(query.replace(/[^\d]/g, '')))
-  );
+  const cleanDigits = query.replace(/[^\d]/g, '');
+
+  const user = db.users.find(u => {
+    if (u.username && u.username.toLowerCase() === query) return true;
+    if (u.email && u.email.toLowerCase() === query) return true;
+    if (cleanDigits.length >= 7 && u.phone && u.phone.replace(/[^\d]/g, '').includes(cleanDigits)) return true;
+    return false;
+  });
 
   if (!user) {
-    throw new Error('Invalid email/phone or password');
+    throw new Error('Invalid username/email or password');
   }
 
   const isMatch = await bcrypt.compare(password, user.passwordHash);
   if (!isMatch) {
-    throw new Error('Invalid email/phone or password');
+    throw new Error('Invalid username/email or password');
   }
 
   const token = generateToken(user);
@@ -122,6 +152,7 @@ export async function loginUser({ emailOrPhone, password }) {
     token,
     user: {
       id: user.id,
+      username: user.username || user.email,
       name: user.name,
       email: user.email,
       phone: user.phone,
@@ -132,7 +163,6 @@ export async function loginUser({ emailOrPhone, password }) {
 
 // Authentication Middleware
 export function requireAuth(req, res, next) {
-  // Support Bearer token header or query param token (for EventSource)
   let token = null;
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -154,7 +184,7 @@ export function requireAuth(req, res, next) {
   }
 }
 
-// Optional Auth Middleware (for public or hybrid endpoints)
+// Optional Auth Middleware
 export function optionalAuth(req, res, next) {
   let token = null;
   const authHeader = req.headers.authorization;
@@ -167,7 +197,7 @@ export function optionalAuth(req, res, next) {
   if (token) {
     try {
       req.user = jwt.verify(token, JWT_SECRET);
-    } catch (err) {
+    } catch {
       req.user = null;
     }
   } else {

@@ -33,7 +33,6 @@ interface DashboardViewProps {
     isLinked?: boolean;
   };
   onOpenWhatsAppLink: () => void;
-  onOpenMobileModal: () => void;
   onOpenNewReminder: (type?: 'someone_else' | 'self') => void;
   onNavigate: (view: string) => void;
   onToggleRoutineStep: (routineId: string, stepId: string) => void;
@@ -49,7 +48,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   userName,
   whatsAppStatus,
   onOpenWhatsAppLink,
-  onOpenMobileModal,
   onOpenNewReminder,
   onNavigate,
   onToggleRoutineStep,
@@ -158,14 +156,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           >
             <Calendar className="w-4 h-4 text-purple-400" />
             <span>Day Planner ({pendingTasks.length} pending)</span>
-          </button>
-
-          <button
-            onClick={onOpenMobileModal}
-            className="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-cyan-950/40 transition transform hover:-translate-y-0.5"
-          >
-            <Smartphone className="w-4 h-4" />
-            <span>Open on Phone 📱</span>
           </button>
         </div>
       </div>

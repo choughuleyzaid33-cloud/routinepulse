@@ -90,8 +90,9 @@
       "name": "Zaid",
       "email": "zaid@routinepulse.com",
       "phone": "+918767353773",
-      "passwordHash": "$2b$10$wZ7jTtAU9lmqFWgKgUmBvu1SuY6vSa3.esrGOdQqWH2fGv.0g0HmK",
-      "createdAt": "2026-10-26T14:13:30.767Z"
+      "passwordHash": "$2b$10$eQsRbryrrWoEva/5cOJemOVhw9Fh5MoeVK0BGqrK4xjAzX1IAmJES",
+      "createdAt": "2026-10-26T14:48:12.633Z",
+      "username": "zaid17"
     }
   ]
 }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Radio, Lock, Mail, User as UserIcon, Phone, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
+import { Radio, Lock, Mail, User as UserIcon, Phone, AtSign, ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
 import { api } from '../utils/api';
 import { User } from '../types';
 
@@ -13,21 +13,25 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLoginSuccess }) => {
   const [error, setError] = useState<string | null>(null);
 
   // Form states
+  const [usernameOrEmail, setUsernameOrEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  // Register form states
   const [name, setName] = useState('');
-  const [emailOrPhone, setEmailOrPhone] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
+  const [registerPassword, setRegisterPassword] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      const res = await api.login(emailOrPhone, password);
+      const res = await api.login(usernameOrEmail, password);
       onLoginSuccess(res.user);
     } catch (err: any) {
-      setError(err.message || 'Login failed. Please check your credentials.');
+      setError(err.message || 'Invalid username/email or password');
     } finally {
       setLoading(false);
     }
@@ -38,7 +42,13 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLoginSuccess }) => {
     setError(null);
     setLoading(true);
     try {
-      const res = await api.register({ name, email, phone, password });
+      const res = await api.register({
+        username,
+        name,
+        email,
+        phone,
+        password: registerPassword
+      });
       onLoginSuccess(res.user);
     } catch (err: any) {
       setError(err.message || 'Registration failed.');
@@ -47,229 +57,236 @@ export const AuthView: React.FC<AuthViewProps> = ({ onLoginSuccess }) => {
     }
   };
 
-  const handleQuickZaidLogin = async () => {
-    setError(null);
-    setLoading(true);
-    try {
-      const res = await api.login('zaid@routinepulse.com', 'zaid123');
-      onLoginSuccess(res.user);
-    } catch (err: any) {
-      setError('Could not auto-login as Zaid. Please enter your credentials manually.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4 relative overflow-hidden font-sans">
-      {/* Background Ambient Glows */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen bg-[#09090b] text-zinc-100 flex flex-col justify-center items-center p-4 sm:p-6 relative overflow-hidden font-sans selection:bg-emerald-500 selection:text-black">
+      {/* Lovable Atmospheric Subtle Lighting */}
+      <div className="absolute top-1/3 -left-32 w-96 h-96 bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-1/4 -right-32 w-96 h-96 bg-teal-500/10 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute -bottom-32 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-emerald-600/5 rounded-full blur-[160px] pointer-events-none" />
 
-      <div className="w-full max-w-md bg-slate-900/90 border border-slate-800 backdrop-blur-xl rounded-3xl p-6 sm:p-8 shadow-2xl relative z-10">
-        {/* App Logo & Header */}
-        <div className="flex flex-col items-center text-center mb-6">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 flex items-center justify-center font-extrabold shadow-lg shadow-emerald-500/20 mb-3">
-            <Radio className="w-7 h-7" />
+      {/* Main Container */}
+      <div className="w-full max-w-[420px] relative z-10 animate-fadeIn">
+        {/* Brand Header */}
+        <div className="flex flex-col items-center text-center mb-8">
+          <div className="relative mb-3">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-600 flex items-center justify-center text-zinc-950 font-black shadow-xl shadow-emerald-500/20 ring-1 ring-white/20">
+              <Radio className="w-6 h-6 text-zinc-950" />
+            </div>
+            <div className="absolute -inset-1 rounded-2xl bg-emerald-500/20 blur-sm -z-10" />
           </div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight">
-            Routine<span className="text-emerald-400">Pulse</span>
+
+          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center space-x-1">
+            <span>Routine</span>
+            <span className="text-emerald-400">Pulse</span>
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            24/7 Daily Routine, Autonomous WhatsApp & Reminder Cloud
+          <p className="text-xs text-zinc-400 mt-1 max-w-xs font-normal">
+            Autonomous Daily Routines & WhatsApp Automation Engine
           </p>
         </div>
 
-        {/* Tab Toggle */}
-        <div className="flex bg-slate-950/80 p-1 rounded-xl mb-6 border border-slate-800">
-          <button
-            type="button"
-            onClick={() => { setTab('login'); setError(null); }}
-            className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
-              tab === 'login'
-                ? 'bg-emerald-500 text-slate-950 shadow-md'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Sign In
-          </button>
-          <button
-            type="button"
-            onClick={() => { setTab('register'); setError(null); }}
-            className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
-              tab === 'register'
-                ? 'bg-emerald-500 text-slate-950 shadow-md'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Create Account
-          </button>
-        </div>
+        {/* Card */}
+        <div className="bg-zinc-900/60 border border-white/[0.08] backdrop-blur-2xl rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/60 relative overflow-hidden">
+          {/* Subtle top edge specular highlight */}
+          <div className="absolute top-0 left-6 right-6 h-[1px] bg-gradient-to-r from-transparent via-emerald-400/40 to-transparent" />
 
-        {/* Error Alert */}
-        {error && (
-          <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-start space-x-2 animate-shake">
-            <span className="font-bold">Error:</span>
-            <span>{error}</span>
+          {/* Segmented Tab Pill */}
+          <div className="flex bg-zinc-950/70 p-1 rounded-xl mb-6 border border-white/[0.06] relative">
+            <button
+              type="button"
+              onClick={() => { setTab('login'); setError(null); }}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all duration-200 ${
+                tab === 'login'
+                  ? 'bg-zinc-800 text-white shadow-sm ring-1 ring-white/10'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => { setTab('register'); setError(null); }}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all duration-200 ${
+                tab === 'register'
+                  ? 'bg-zinc-800 text-white shadow-sm ring-1 ring-white/10'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              Create Account
+            </button>
           </div>
-        )}
 
-        {/* Login Form */}
-        {tab === 'login' ? (
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                Email Address or Phone
-              </label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
-                <input
-                  type="text"
-                  required
-                  value={emailOrPhone}
-                  onChange={e => setEmailOrPhone(e.target.value)}
-                  placeholder="zaid@routinepulse.com or +91..."
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-950/60 border border-slate-700/80 rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition"
-                />
-              </div>
+          {/* Error Banner */}
+          {error && (
+            <div className="mb-5 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center space-x-2 animate-fadeIn">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0" />
+              <span className="font-medium">{error}</span>
             </div>
+          )}
 
-            <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-950/60 border border-slate-700/80 rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition"
-                />
+          {/* Login View */}
+          {tab === 'login' ? (
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                  Username or Email
+                </label>
+                <div className="relative">
+                  <AtSign className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3" />
+                  <input
+                    type="text"
+                    required
+                    value={usernameOrEmail}
+                    onChange={e => setUsernameOrEmail(e.target.value)}
+                    placeholder="zaid17 or email"
+                    className="w-full pl-10 pr-4 py-2.5 bg-zinc-950/70 border border-zinc-800 rounded-xl text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500/80 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-150"
+                  />
+                </div>
               </div>
-            </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-bold text-sm rounded-xl transition flex items-center justify-center space-x-2 shadow-lg shadow-emerald-500/20"
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <>
-                  <span>Sign In</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-medium text-zinc-300">
+                    Password
+                  </label>
+                </div>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3" />
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="••••••••••••"
+                    className="w-full pl-10 pr-4 py-2.5 bg-zinc-950/70 border border-zinc-800 rounded-xl text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500/80 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-150"
+                  />
+                </div>
+              </div>
 
-            {/* Quick 1-Click Login for Zaid */}
-            <div className="pt-2">
               <button
-                type="button"
-                onClick={handleQuickZaidLogin}
-                className="w-full py-2 bg-slate-800 hover:bg-slate-700/80 text-emerald-400 text-xs font-semibold rounded-xl border border-slate-700/50 flex items-center justify-center space-x-1.5 transition"
+                type="submit"
+                disabled={loading}
+                className="w-full mt-2 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-zinc-950 font-bold text-sm rounded-xl transition-all duration-150 flex items-center justify-center space-x-2 shadow-lg shadow-emerald-500/20 active:scale-[0.99]"
               >
-                <Zap className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Quick Sign In as Zaid</span>
+                {loading ? (
+                  <div className="w-4 h-4 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <span>Sign In</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </button>
-            </div>
-          </form>
-        ) : (
-          /* Register Form */
-          <form onSubmit={handleRegister} className="space-y-3.5">
-            <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
-                Your Full Name
-              </label>
-              <div className="relative">
-                <UserIcon className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  placeholder="e.g. Zaid Chougle"
-                  className="w-full pl-10 pr-4 py-2 bg-slate-950/60 border border-slate-700/80 rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition"
-                />
+            </form>
+          ) : (
+            /* Registration View */
+            <form onSubmit={handleRegister} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-medium text-zinc-300 mb-1">
+                  Full Name
+                </label>
+                <div className="relative">
+                  <UserIcon className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3" />
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    placeholder="Zaid Chougle"
+                    className="w-full pl-10 pr-4 py-2 bg-zinc-950/70 border border-zinc-800 rounded-xl text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500/80 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-150"
+                  />
+                </div>
               </div>
-            </div>
 
-            <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
-                Email Address
-              </label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="yourname@gmail.com"
-                  className="w-full pl-10 pr-4 py-2 bg-slate-950/60 border border-slate-700/80 rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition"
-                />
+              <div>
+                <label className="block text-xs font-medium text-zinc-300 mb-1">
+                  Choose Username
+                </label>
+                <div className="relative">
+                  <AtSign className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3" />
+                  <input
+                    type="text"
+                    required
+                    value={username}
+                    onChange={e => setUsername(e.target.value)}
+                    placeholder="zaid17"
+                    className="w-full pl-10 pr-4 py-2 bg-zinc-950/70 border border-zinc-800 rounded-xl text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500/80 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-150"
+                  />
+                </div>
               </div>
-            </div>
 
-            <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
-                Phone Number (WhatsApp)
-              </label>
-              <div className="relative">
-                <Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={e => setPhone(e.target.value)}
-                  placeholder="+91..."
-                  className="w-full pl-10 pr-4 py-2 bg-slate-950/60 border border-slate-700/80 rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition"
-                />
+              <div>
+                <label className="block text-xs font-medium text-zinc-300 mb-1">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3" />
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="name@example.com"
+                    className="w-full pl-10 pr-4 py-2 bg-zinc-950/70 border border-zinc-800 rounded-xl text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500/80 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-150"
+                  />
+                </div>
               </div>
-            </div>
 
-            <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
-                Password (min 6 characters)
-              </label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-2 bg-slate-950/60 border border-slate-700/80 rounded-xl text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition"
-                />
+              <div>
+                <label className="block text-xs font-medium text-zinc-300 mb-1">
+                  WhatsApp Phone
+                </label>
+                <div className="relative">
+                  <Phone className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3" />
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={e => setPhone(e.target.value)}
+                    placeholder="+91 8767353773"
+                    className="w-full pl-10 pr-4 py-2 bg-zinc-950/70 border border-zinc-800 rounded-xl text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500/80 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-150"
+                  />
+                </div>
               </div>
-            </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-bold text-sm rounded-xl transition flex items-center justify-center space-x-2 shadow-lg shadow-emerald-500/20 mt-2"
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <>
-                  <span>Create Account</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </form>
-        )}
+              <div>
+                <label className="block text-xs font-medium text-zinc-300 mb-1">
+                  Password (min 6 characters)
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3" />
+                  <input
+                    type="password"
+                    required
+                    minLength={6}
+                    value={registerPassword}
+                    onChange={e => setRegisterPassword(e.target.value)}
+                    placeholder="••••••••••••"
+                    className="w-full pl-10 pr-4 py-2 bg-zinc-950/70 border border-zinc-800 rounded-xl text-zinc-100 text-sm placeholder-zinc-500 focus:outline-none focus:border-emerald-500/80 focus:ring-2 focus:ring-emerald-500/20 transition-all duration-150"
+                  />
+                </div>
+              </div>
 
-        {/* Feature badge */}
-        <div className="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-center space-x-2 text-[11px] text-slate-400">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Independent data isolation & personal WhatsApp sessions</span>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full mt-3 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-zinc-950 font-bold text-sm rounded-xl transition-all duration-150 flex items-center justify-center space-x-2 shadow-lg shadow-emerald-500/20 active:scale-[0.99]"
+              >
+                {loading ? (
+                  <div className="w-4 h-4 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <span>Create Account</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </form>
+          )}
+
+          {/* Clean Security Badge Footer */}
+          <div className="mt-6 pt-4 border-t border-white/[0.06] flex items-center justify-center space-x-2 text-[11px] text-zinc-500">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400/80" />
+            <span>Private & isolated WhatsApp sessions per user</span>
+          </div>
         </div>
       </div>
     </div>

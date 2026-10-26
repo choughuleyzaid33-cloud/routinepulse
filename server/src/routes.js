@@ -76,8 +76,7 @@ router.get('/events', (req, res) => {
 
 router.post('/auth/register', async (req, res) => {
   try {
-    const { name, email, phone, password } = req.body;
-    const result = await registerUser({ name, email, phone, password });
+    const result = await registerUser(req.body);
     res.status(201).json(result);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -86,8 +85,7 @@ router.post('/auth/register', async (req, res) => {
 
 router.post('/auth/login', async (req, res) => {
   try {
-    const { emailOrPhone, password } = req.body;
-    const result = await loginUser({ emailOrPhone, password });
+    const result = await loginUser(req.body);
     res.json(result);
   } catch (err) {
     res.status(401).json({ error: err.message });

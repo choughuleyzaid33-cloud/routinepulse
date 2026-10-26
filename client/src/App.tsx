@@ -17,7 +17,6 @@ import { Sidebar } from './components/Sidebar';
 import { LiveAlertModal } from './components/LiveAlertModal';
 import { NewReminderModal } from './components/NewReminderModal';
 import { WhatsAppLinkModal } from './components/WhatsAppLinkModal';
-import { MobileAccessModal } from './components/MobileAccessModal';
 import {
   LayoutDashboard,
   Bell,
@@ -26,7 +25,6 @@ import {
   Settings,
   Radio,
   Send,
-  Smartphone,
   LogOut
 } from 'lucide-react';
 import { AuthView } from './views/AuthView';
@@ -57,7 +55,6 @@ export const App: React.FC = () => {
   const [isNewReminderOpen, setIsNewReminderOpen] = useState(false);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [isWhatsAppLinkOpen, setIsWhatsAppLinkOpen] = useState(false);
-  const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
   const [whatsAppStatus, setWhatsAppStatus] = useState<{
     state: string;
     qrCode: string | null;
@@ -346,13 +343,6 @@ export const App: React.FC = () => {
 
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => setIsMobileModalOpen(true)}
-            className="p-1.5 rounded-lg bg-cyan-950 text-cyan-400 border border-cyan-800/60 text-xs font-semibold flex items-center space-x-1"
-          >
-            <Smartphone className="w-3.5 h-3.5" />
-            <span>Phone</span>
-          </button>
-          <button
             onClick={() => handleOpenNewReminder('someone_else')}
             className="p-1.5 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center space-x-1"
           >
@@ -374,7 +364,6 @@ export const App: React.FC = () => {
         currentView={currentView}
         onNavigate={setCurrentView}
         onOpenNewReminder={handleOpenNewReminder}
-        onOpenMobileModal={() => setIsMobileModalOpen(true)}
         activeRemindersCount={activeRemindersCount}
         routineStreak={totalStreaks}
         currentUser={currentUser}
@@ -394,7 +383,6 @@ export const App: React.FC = () => {
               userName={currentUser.name || settings?.userName || 'Zaid'}
               whatsAppStatus={whatsAppStatus}
               onOpenWhatsAppLink={() => setIsWhatsAppLinkOpen(true)}
-              onOpenMobileModal={() => setIsMobileModalOpen(true)}
               onOpenNewReminder={handleOpenNewReminder}
               onNavigate={setCurrentView}
               onToggleRoutineStep={handleToggleRoutineStep}
@@ -518,12 +506,6 @@ export const App: React.FC = () => {
         }}
         contacts={contacts}
         editingReminder={editingReminder}
-      />
-
-      {/* Mobile Access & Pairing Modal */}
-      <MobileAccessModal
-        isOpen={isMobileModalOpen}
-        onClose={() => setIsMobileModalOpen(false)}
       />
 
       {/* Mobile Bottom Navigation Bar (Phone Only) */}

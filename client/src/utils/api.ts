@@ -22,11 +22,11 @@ function getAuthHeaders(headers: Record<string, string> = {}): Record<string, st
 
 export const api = {
   // Authentication
-  login: async (emailOrPhone: string, password: string): Promise<{ token: string; user: User }> => {
+  login: async (usernameOrEmail: string, password: string): Promise<{ token: string; user: User }> => {
     const res = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ emailOrPhone, password })
+      body: JSON.stringify({ usernameOrEmail, password })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to login');
@@ -35,7 +35,7 @@ export const api = {
     return data;
   },
 
-  register: async (payload: { name: string; email: string; phone?: string; password: string }): Promise<{ token: string; user: User }> => {
+  register: async (payload: { username?: string; name: string; email: string; phone?: string; password: string }): Promise<{ token: string; user: User }> => {
     const res = await fetch(`${BASE_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
