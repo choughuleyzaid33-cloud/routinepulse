@@ -10,7 +10,8 @@ import {
   Zap,
   KeyRound,
   Copy,
-  Check
+  Check,
+  ShieldCheck
 } from 'lucide-react';
 import { api } from '../utils/api';
 
@@ -120,7 +121,7 @@ export const WhatsAppLinkModal: React.FC<WhatsAppLinkModalProps> = ({
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
-  const isConnected = status.state === 'connected';
+  const isLinked = Boolean(status.isLinked || status.state === 'connected' || status.state === 'standby');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
@@ -144,13 +145,13 @@ export const WhatsAppLinkModal: React.FC<WhatsAppLinkModalProps> = ({
           <div>
             <h2 className="text-xl font-bold text-white">Link Your WhatsApp Account</h2>
             <p className="text-xs text-slate-400">
-              Autonomous 24/7 background scheduled messaging
+              Stealth Wake-on-Demand (Never kept online 24/7)
             </p>
           </div>
         </div>
 
-        {isConnected ? (
-          /* Connected State */
+        {isLinked ? (
+          /* Connected & Linked State (Wake-on-Demand Stealth Mode) */
           <div className="space-y-4">
             <div className="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/40 flex items-center justify-between">
               <div className="flex items-center space-x-3">
@@ -160,29 +161,34 @@ export const WhatsAppLinkModal: React.FC<WhatsAppLinkModalProps> = ({
                 <div>
                   <h3 className="text-sm font-bold text-emerald-300">Device Linked & Ready!</h3>
                   <p className="text-xs text-slate-300">
-                    Connected as: <span className="font-mono text-emerald-400">{status.user?.name || status.user?.id || 'WhatsApp User'}</span>
+                    Linked account: <span className="font-mono text-emerald-400">{status.user?.name || status.user?.id || 'Active WhatsApp Device'}</span>
                   </p>
                 </div>
               </div>
-              <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                Live
+              <span className="text-[10px] uppercase font-bold px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center space-x-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1 inline-block" />
+                Stealth Standby
               </span>
             </div>
 
             <div className="bg-slate-950/70 rounded-2xl p-4 border border-slate-800 text-xs text-slate-300 space-y-2">
               <p className="font-semibold text-white flex items-center space-x-1.5">
-                <Zap className="w-4 h-4 text-emerald-400" />
-                <span>Autonomous Background Mode Active:</span>
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <span>Stealth Wake-on-Demand Mode (Offline 24/7):</span>
               </p>
-              <ul className="list-disc list-inside space-y-1 text-slate-400">
-                <li>Scheduled WhatsApp messages transmit directly over WhatsApp socket.</li>
-                <li>Sends automatically at scheduled times even when your app or browser is off.</li>
-                <li>No browser popups or manual click needed.</li>
+              <ul className="list-disc list-inside space-y-1.5 text-slate-400">
+                <li><strong className="text-slate-200">Never kept online 24/7:</strong> The socket sleeps completely and keeps your WhatsApp status offline.</li>
+                <li><strong className="text-slate-200">Wakes on-demand:</strong> Connects for 2-3 seconds only at the exact scheduled reminder time to transmit your text.</li>
+                <li><strong className="text-slate-200">100% Autonomous:</strong> Delivers reminders in the background even when your laptop or phone is closed.</li>
               </ul>
             </div>
 
             {/* Test Direct Message Form */}
             <form onSubmit={handleSendTest} className="p-4 bg-slate-800/40 rounded-2xl border border-slate-700/60 space-y-3">
+              <p className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center space-x-1">
+                <Send className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Test Wake-and-Send (Instant)</span>
+              </p>
               <p className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center space-x-1">
                 <Send className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Send a Test Message (Instant)</span>
@@ -215,7 +221,7 @@ export const WhatsAppLinkModal: React.FC<WhatsAppLinkModalProps> = ({
                   className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white rounded-xl text-xs font-semibold shadow-md flex items-center space-x-1.5 transition"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  <span>{isSending ? 'Sending...' : 'Send Test WhatsApp'}</span>
+                  <span>{isSending ? 'Waking & Sending...' : 'Test Wake-and-Send'}</span>
                 </button>
 
                 <button

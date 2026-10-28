@@ -131,44 +131,50 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       <form onSubmit={handleSave} className="space-y-6">
         {/* WhatsApp Autonomous Linked Device Card */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 text-emerald-400 text-xs font-bold uppercase tracking-wider">
-              <QrCode className="w-4 h-4" />
-              <span>WhatsApp Autonomous Multi-Device Link</span>
-            </div>
-            <span className={`text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full ${
-              whatsAppStatus.state === 'connected'
-                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
-            }`}>
-              {whatsAppStatus.state === 'connected' ? 'Connected & Active' : 'Not Linked'}
-            </span>
-          </div>
+        {(() => {
+          const isLinked = Boolean(whatsAppStatus.isLinked || whatsAppStatus.state === 'connected' || whatsAppStatus.state === 'standby');
+          return (
+            <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+                  <QrCode className="w-4 h-4" />
+                  <span>WhatsApp Autonomous Multi-Device Link</span>
+                </div>
+                <span className={`text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full ${
+                  isLinked
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                    : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                }`}>
+                  {isLinked ? 'Linked & Stealth Standby' : 'Not Linked'}
+                </span>
+              </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-bold text-white">
-                {whatsAppStatus.state === 'connected'
-                  ? `Linked: ${whatsAppStatus.user?.name || whatsAppStatus.user?.id || 'Active WhatsApp Device'}`
-                  : 'Link WhatsApp Web for 24/7 Background Sending'}
-              </h2>
-              <p className="text-xs text-slate-400 mt-1 max-w-xl">
-                When linked, scheduled messages are transmitted directly over WhatsApp Web sockets.
-                Messages send automatically at the scheduled time even when your browser or app window is completely closed!
-              </p>
-            </div>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-bold text-white">
+                    {isLinked
+                      ? `Linked: ${whatsAppStatus.user?.name || whatsAppStatus.user?.id || 'Active WhatsApp Device'}`
+                      : 'Link WhatsApp Web for Background Sending'}
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-1 max-w-xl">
+                    {isLinked
+                      ? 'Stealth Wake-on-Demand Mode: You will NOT be kept online 24/7. RoutinePulse stays completely asleep and wakes for 2-3s only to transmit scheduled reminders, keeping your WhatsApp status completely offline.'
+                      : 'When linked, scheduled messages are transmitted directly over WhatsApp Web sockets even when your phone or laptop is closed.'}
+                  </p>
+                </div>
 
-            <button
-              type="button"
-              onClick={onOpenWhatsAppLink}
-              className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-950/40 flex items-center space-x-2 transition shrink-0"
-            >
-              <Zap className="w-4 h-4" />
-              <span>{whatsAppStatus.state === 'connected' ? 'Manage Connection' : 'Scan QR Code'}</span>
-            </button>
-          </div>
-        </div>
+                <button
+                  type="button"
+                  onClick={onOpenWhatsAppLink}
+                  className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-950/40 flex items-center space-x-2 transition shrink-0"
+                >
+                  <Zap className="w-4 h-4" />
+                  <span>{isLinked ? 'Manage Connection' : 'Scan QR Code'}</span>
+                </button>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* 24/7 Silent Background Daemon & Windows Startup Info */}
         <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-3">

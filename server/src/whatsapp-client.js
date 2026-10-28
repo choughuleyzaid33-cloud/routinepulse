@@ -26,8 +26,9 @@ function getOrCreateUserSession(userId = 'user_zaid') {
       qrCode: null,
       pairingCode: null,
       user: null,
-      reconnectTimer: null,
-      isInitializing: false
+      sleepTimer: null,
+      isInitializing: false,
+      wakingPromise: null
     });
   }
   return userSessions.get(userId);
@@ -49,6 +50,22 @@ export function isUserRegistered(authDir) {
 }
 
 /**
+ * Extract saved user name / id from creds.json on disk
+ */
+export function getRegisteredUserInfo(authDir) {
+  try {
+    const credsPath = path.join(authDir, 'creds.json');
+    if (!fs.existsSync(credsPath)) return null;
+    const raw = fs.readFileSync(credsPath, 'utf-8');
+    const creds = JSON.parse(raw);
+    if (!creds.registered) return null;
+    return creds.me || { id: 'linked_user', name: 'WhatsApp User' };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Get dedicated auth directory for a user
  */
 export function getUserAuthDir(userId = 'user_zaid') {
@@ -64,13 +81,14 @@ export function getWhatsAppStatus(userId = 'user_zaid') {
   const session = getOrCreateUserSession(userId);
   const authDir = getUserAuthDir(userId);
   const isLinked = isUserRegistered(authDir);
+  const savedUser = isLinked ? (session.user || getRegisteredUserInfo(authDir)) : null;
 
   return {
     userId,
-    state: session.state,
+    state: isLinked ? (session.state === 'connected' ? 'connected' : 'standby') : session.state,
     qrCode: session.qrCode,
     pairingCode: session.pairingCode,
-    user: session.user,
+    user: savedUser,
     isLinked
   };
 }
@@ -92,6 +110,175 @@ export function sanitizePhoneNumber(phone, defaultCountry = '91') {
   return cleaned;
 }
 
+/**
+ * Put the user socket to sleep after inactivity so user remains 100% offline
+ */
+export function scheduleSessionSleep(userId = 'user_zaid', delayMs = 5000) {
+  const session = getOrCreateUserSession(userId);
+
+  if (session.sleepTimer) {
+    clearTimeout(session.sleepTimer);
+    session.sleepTimer = null;
+  }
+
+  session.sleepTimer = setTimeout(async () => {
+    session.sleepTimer = null;
+
+    if (session.sock) {
+      try {
+        try {
+          await session.sock.sendPresenceUpdate('unavailable');
+        } catch (e) {}
+
+        session.sock.ev.removeAllListeners();
+        session.sock.end();
+      } catch (e) {}
+      session.sock = null;
+    }
+
+    session.state = 'standby';
+    console.log(`[WhatsApp Stealth Engine ${userId}] Socket closed. Session sleeping in standby mode. User is offline.`);
+    broadcastSse('whatsapp_status', {
+      userId,
+      state: 'standby',
+      isLinked: true,
+      user: session.user || getRegisteredUserInfo(getUserAuthDir(userId))
+    });
+  }, delayMs);
+}
+
+/**
+ * Wake or connect a socket on-demand for a registered user (Stealth Mode)
+ */
+export async function wakeWhatsAppSocket(userId = 'user_zaid') {
+  const session = getOrCreateUserSession(userId);
+  const authDir = getUserAuthDir(userId);
+
+  if (!isUserRegistered(authDir)) {
+    throw new Error('Your WhatsApp is not linked. Please link your WhatsApp in Settings first.');
+  }
+
+  // Clear any pending sleep timer
+  if (session.sleepTimer) {
+    clearTimeout(session.sleepTimer);
+    session.sleepTimer = null;
+  }
+
+  // If already connected
+  if (session.sock && session.state === 'connected') {
+    return session.sock;
+  }
+
+  // If already waking, wait for existing promise
+  if (session.wakingPromise) {
+    return session.wakingPromise;
+  }
+
+  session.wakingPromise = new Promise(async (resolve, reject) => {
+    let resolved = false;
+    let wakeTimeout = null;
+
+    try {
+      session.state = 'connecting';
+      console.log(`[WhatsApp Wake-on-Demand ${userId}] Initializing stealth socket (User offline)...`);
+
+      const { state, saveCreds } = await useMultiFileAuthState(authDir);
+      const { version } = await fetchLatestBaileysVersion();
+
+      const sock = makeWASocket({
+        version,
+        auth: state,
+        logger: pino({ level: 'silent' }),
+        printQRInTerminal: false,
+        browser: Browsers.ubuntu('Chrome'),
+        markOnlineOnConnect: false, // CRITICAL: Never mark user online
+        syncFullHistory: false,
+        connectTimeoutMs: 25000,
+        defaultQueryTimeoutMs: 25000,
+        keepAliveIntervalMs: 15000
+      });
+
+      session.sock = sock;
+      sock.ev.on('creds.update', saveCreds);
+
+      wakeTimeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          session.wakingPromise = null;
+          try {
+            sock.ev.removeAllListeners();
+            sock.end();
+          } catch (e) {}
+          session.sock = null;
+          session.state = 'standby';
+          reject(new Error('Timeout waking WhatsApp socket (server did not respond in 25s)'));
+        }
+      }, 25000);
+
+      sock.ev.on('connection.update', async update => {
+        const { connection, lastDisconnect } = update;
+
+        if (connection === 'open') {
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(wakeTimeout);
+            session.state = 'connected';
+            session.user = sock.user || session.user || getRegisteredUserInfo(authDir);
+            session.wakingPromise = null;
+
+            // Ensure presence is explicitly set to unavailable (offline)
+            try {
+              await sock.sendPresenceUpdate('unavailable');
+            } catch (e) {}
+
+            console.log(`[WhatsApp Wake-on-Demand ${userId}] Socket connected & stealth active (Presence: unavailable/offline).`);
+            resolve(sock);
+          }
+        }
+
+        if (connection === 'close') {
+          const statusCode = lastDisconnect?.error?.output?.statusCode;
+          const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+
+          if (isLoggedOut) {
+            console.log(`[WhatsApp Wake-on-Demand ${userId}] Device unlinked from phone.`);
+            session.state = 'disconnected';
+            session.user = null;
+            session.sock = null;
+            try {
+              fs.rmSync(authDir, { recursive: true, force: true });
+            } catch (e) {}
+            broadcastSse('whatsapp_status', { userId, state: 'disconnected', isLinked: false });
+          } else {
+            session.state = 'standby';
+            session.sock = null;
+          }
+
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(wakeTimeout);
+            session.wakingPromise = null;
+            reject(new Error(`WhatsApp connection closed before opening (statusCode: ${statusCode})`));
+          }
+        }
+      });
+    } catch (err) {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(wakeTimeout);
+        session.wakingPromise = null;
+        session.state = 'standby';
+        reject(err);
+      }
+    }
+  });
+
+  return session.wakingPromise;
+}
+
+/**
+ * Initial linking flow (QR code or Pairing Code)
+ */
 export async function initWhatsAppClient(userId = 'user_zaid', phoneNumberForPairing = null, forceFresh = false) {
   const session = getOrCreateUserSession(userId);
 
@@ -102,10 +289,9 @@ export async function initWhatsAppClient(userId = 'user_zaid', phoneNumberForPai
 
   session.isInitializing = true;
 
-  // Clean up any stale socket for this user
-  if (session.reconnectTimer) {
-    clearTimeout(session.reconnectTimer);
-    session.reconnectTimer = null;
+  if (session.sleepTimer) {
+    clearTimeout(session.sleepTimer);
+    session.sleepTimer = null;
   }
 
   if (session.sock) {
@@ -118,7 +304,7 @@ export async function initWhatsAppClient(userId = 'user_zaid', phoneNumberForPai
 
   const authDir = getUserAuthDir(userId);
 
-  // If forcing fresh, or if not registered yet, start completely clean so Baileys generates a fresh handshake
+  // If forcing fresh, or if not registered yet, start completely clean
   if (forceFresh || phoneNumberForPairing || !isUserRegistered(authDir)) {
     try {
       if (fs.existsSync(authDir)) {
@@ -141,6 +327,7 @@ export async function initWhatsAppClient(userId = 'user_zaid', phoneNumberForPai
       logger: pino({ level: 'silent' }),
       printQRInTerminal: false,
       browser: Browsers.ubuntu('Chrome'),
+      markOnlineOnConnect: false, // Never mark online
       syncFullHistory: false,
       connectTimeoutMs: 60000,
       defaultQueryTimeoutMs: 60000,
@@ -195,12 +382,21 @@ export async function initWhatsAppClient(userId = 'user_zaid', phoneNumberForPai
         session.pairingCode = null;
         session.isInitializing = false;
         session.user = sock.user || { id: 'unknown', name: 'WhatsApp User' };
+
+        // Ensure user is offline on WhatsApp
+        try {
+          await sock.sendPresenceUpdate('unavailable');
+        } catch (e) {}
+
         console.log(`====================================================`);
-        console.log(`[WhatsApp Socket ${userId}] Connected & Authenticated!`);
+        console.log(`[WhatsApp Socket ${userId}] Connected & Linked!`);
         console.log(`Phone ID: ${session.user.id}`);
         console.log(`User:     ${session.user.name || 'Active'}`);
         console.log(`====================================================`);
         broadcastSse('whatsapp_status', { userId, state: 'connected', user: session.user, isLinked: true });
+
+        // Go to sleep after 15 seconds of idle so user is not kept online
+        scheduleSessionSleep(userId, 15000);
       }
 
       if (connection === 'close') {
@@ -221,21 +417,14 @@ export async function initWhatsAppClient(userId = 'user_zaid', phoneNumberForPai
           } catch (e) {}
           broadcastSse('whatsapp_status', { userId, state: 'disconnected', isLinked: false });
         } else {
-          // Only auto-reconnect if device is actually registered
-          if (isUserRegistered(authDir)) {
-            console.log(`[WhatsApp Socket ${userId}] Reconnecting with registered session...`);
-            session.state = 'connecting';
-            broadcastSse('whatsapp_status', { userId, state: 'connecting' });
-
-            if (session.reconnectTimer) clearTimeout(session.reconnectTimer);
-            session.reconnectTimer = setTimeout(() => {
-              initWhatsAppClient(userId).catch(console.error);
-            }, 3000);
-          } else {
-            session.state = 'disconnected';
-            session.isInitializing = false;
-            broadcastSse('whatsapp_status', { userId, state: 'disconnected', isLinked: false });
-          }
+          // If registered, put in standby mode (do NOT keep open 24/7)
+          session.state = isUserRegistered(authDir) ? 'standby' : 'disconnected';
+          session.isInitializing = false;
+          broadcastSse('whatsapp_status', {
+            userId,
+            state: session.state,
+            isLinked: isUserRegistered(authDir)
+          });
         }
       }
     });
@@ -252,12 +441,12 @@ export async function initWhatsAppClient(userId = 'user_zaid', phoneNumberForPai
 }
 
 /**
- * Send an autonomous WhatsApp message directly via user's socket
+ * Send an autonomous WhatsApp message directly via wake-on-demand
  */
 export async function sendDirectWhatsAppMessage(phoneNumber, message, userId = 'user_zaid') {
-  const session = getOrCreateUserSession(userId);
+  const authDir = getUserAuthDir(userId);
 
-  if (session.state !== 'connected' || !session.sock) {
+  if (!isUserRegistered(authDir)) {
     throw new Error('Your WhatsApp is not linked. Please link your WhatsApp in Settings first.');
   }
 
@@ -267,9 +456,18 @@ export async function sendDirectWhatsAppMessage(phoneNumber, message, userId = '
   }
 
   const jid = `${cleanPhone}@s.whatsapp.net`;
-  console.log(`[WhatsApp Direct Dispatch for ${userId}] Sending to ${jid}`);
+  console.log(`[WhatsApp Stealth Dispatch for ${userId}] Waking on-demand to send to ${jid}...`);
 
-  const result = await session.sock.sendMessage(jid, { text: message });
+  // 1. Wake the socket
+  const sock = await wakeWhatsAppSocket(userId);
+
+  // 2. Transmit message
+  const result = await sock.sendMessage(jid, { text: message });
+  console.log(`[WhatsApp Stealth Dispatch for ${userId}] Message sent successfully to ${jid}!`);
+
+  // 3. Schedule sleep (5 seconds after message to ensure socket write/ack finishes)
+  scheduleSessionSleep(userId, 5000);
+
   return result;
 }
 
@@ -279,9 +477,9 @@ export async function sendDirectWhatsAppMessage(phoneNumber, message, userId = '
 export async function disconnectWhatsAppSession(userId = 'user_zaid') {
   const session = getOrCreateUserSession(userId);
   try {
-    if (session.reconnectTimer) {
-      clearTimeout(session.reconnectTimer);
-      session.reconnectTimer = null;
+    if (session.sleepTimer) {
+      clearTimeout(session.sleepTimer);
+      session.sleepTimer = null;
     }
     if (session.sock) {
       try {
@@ -310,7 +508,8 @@ export async function disconnectWhatsAppSession(userId = 'user_zaid') {
 }
 
 /**
- * Auto-reconnect all active sessions found on disk on server startup
+ * Startup helper: verifies active sessions and marks them ready in standby mode
+ * (Does NOT connect live sockets or keep user online 24/7)
  */
 export async function reconnectAllActiveWhatsAppSessions() {
   if (!fs.existsSync(BASE_AUTH_DIR)) return;
@@ -321,8 +520,10 @@ export async function reconnectAllActiveWhatsAppSessions() {
       if (entry.isDirectory()) {
         const userDir = path.join(BASE_AUTH_DIR, entry.name);
         if (isUserRegistered(userDir)) {
-          console.log(`[Startup] Found linked session for user ${entry.name}. Auto-reconnecting...`);
-          initWhatsAppClient(entry.name).catch(err => console.error(`[Startup Reconnect ${entry.name}]`, err.message));
+          const session = getOrCreateUserSession(entry.name);
+          session.state = 'standby';
+          session.user = getRegisteredUserInfo(userDir);
+          console.log(`[Startup] User ${entry.name} WhatsApp session ready in Standby Mode (Wake-on-demand). User is offline.`);
         }
       }
     }

@@ -161,50 +161,55 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* Autonomous 24/7 Status & WhatsApp Linked Device Banner */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center space-x-3.5">
-          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-lg shadow-lg ${
-            whatsAppStatus.state === 'connected'
-              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-              : 'bg-amber-500/20 text-amber-400 border border-amber-500/40 animate-pulse'
-          }`}>
-            <MessageSquare className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <h3 className="text-sm font-bold text-white">
-                {whatsAppStatus.state === 'connected'
-                  ? 'WhatsApp Autonomous Sending: Active'
-                  : 'WhatsApp Autonomous Device: Not Linked'}
-              </h3>
-              <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full ${
-                whatsAppStatus.state === 'connected'
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                  : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+      {(() => {
+        const isLinked = Boolean(whatsAppStatus.isLinked || whatsAppStatus.state === 'connected' || whatsAppStatus.state === 'standby');
+        return (
+          <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex items-center space-x-3.5">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-lg shadow-lg ${
+                isLinked
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                  : 'bg-amber-500/20 text-amber-400 border border-amber-500/40 animate-pulse'
               }`}>
-                {whatsAppStatus.state === 'connected' ? '24/7 Background Live' : 'Action Needed'}
-              </span>
+                <MessageSquare className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <h3 className="text-sm font-bold text-white">
+                    {isLinked
+                      ? 'WhatsApp Engine: Linked & Ready'
+                      : 'WhatsApp Autonomous Device: Not Linked'}
+                  </h3>
+                  <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full ${
+                    isLinked
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                      : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                  }`}>
+                    {isLinked ? 'Stealth Wake-on-Demand' : 'Action Needed'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {isLinked
+                    ? `Linked to ${whatsAppStatus.user?.name || whatsAppStatus.user?.id || 'Active WhatsApp Device'}. Offline 24/7 — wakes for 2-3s only to send scheduled reminders.`
+                    : 'Link your WhatsApp by scanning a QR code so your scheduled messages send automatically in the background.'}
+                </p>
+              </div>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              {whatsAppStatus.state === 'connected'
-                ? `Connected as ${whatsAppStatus.user?.name || whatsAppStatus.user?.id || 'WhatsApp User'}. Scheduled texts will send automatically in the background even if this window is closed!`
-                : 'Link your WhatsApp by scanning a QR code so your scheduled messages send automatically in the background.'}
-            </p>
-          </div>
-        </div>
 
-        <button
-          onClick={onOpenWhatsAppLink}
-          className={`px-4 py-2.5 rounded-xl text-xs font-semibold shadow-md flex items-center space-x-2 transition ${
-            whatsAppStatus.state === 'connected'
-              ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
-              : 'bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white shadow-emerald-950/40'
-          }`}
-        >
-          <Zap className="w-4 h-4" />
-          <span>{whatsAppStatus.state === 'connected' ? 'Manage WhatsApp Session' : 'Link WhatsApp (Scan QR)'}</span>
-        </button>
-      </div>
+            <button
+              onClick={onOpenWhatsAppLink}
+              className={`px-4 py-2.5 rounded-xl text-xs font-semibold shadow-md flex items-center space-x-2 transition ${
+                isLinked
+                  ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                  : 'bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white shadow-emerald-950/40'
+              }`}
+            >
+              <Zap className="w-4 h-4" />
+              <span>{isLinked ? 'Manage WhatsApp Session' : 'Link WhatsApp (Scan QR)'}</span>
+            </button>
+          </div>
+        );
+      })()}
 
       {/* KPI Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

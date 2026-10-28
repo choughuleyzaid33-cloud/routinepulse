@@ -54,12 +54,12 @@ export async function dispatchReminder(reminder, isTest = false) {
       urls = getWhatsAppUrls(cleanPhone, reminder.message);
       const waStatus = getWhatsAppStatus(userId);
 
-      // OPTION 1: Direct Autonomous WhatsApp sending (Linked Device via Baileys)
-      if (waStatus.state === 'connected') {
+      // OPTION 1: Direct Autonomous WhatsApp sending (Linked Device via Baileys Wake-on-Demand)
+      if (waStatus.isLinked) {
         try {
-          console.log(`[Autonomous Dispatch for ${userId}] Sending directly via linked WhatsApp to +${cleanPhone}`);
+          console.log(`[Autonomous Dispatch for ${userId}] Waking WhatsApp on-demand to send to +${cleanPhone}`);
           await sendDirectWhatsAppMessage(cleanPhone, reminder.message, userId);
-          details = `Sent autonomously via Linked WhatsApp Session (+${cleanPhone}) — No browser interaction required!`;
+          details = `Sent autonomously via WhatsApp (+${cleanPhone}) — Woke on-demand & returned to sleep (Stealth offline mode)`;
         } catch (directErr) {
           console.warn('[Autonomous Dispatch Failed, falling back]', directErr.message);
           details = `Direct socket dispatch failed (${directErr.message}), falling back to browser`;
